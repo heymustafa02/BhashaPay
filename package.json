@@ -1,0 +1,57 @@
+{
+  "name": "ethy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --workspace=@bhashapay/web",
+    "build": "npm run build --workspace=@bhashapay/web",
+    "start": "npm run start --workspace=@bhashapay/web",
+    "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
+    "api:dev": "tsx services/api/index.ts",
+    "demo:translate": "tsx scripts/paid-translate.ts",
+    "agent:mcp": "tsx services/agent/mcp-server.ts",
+    "services:seed": "tsx scripts/seed-services.ts",
+    "whitechain:dev": "tsx services/facilitator-whitechain/index.ts",
+    "contracts:test": "forge test"
+  },
+  "dependencies": {
+    "@hiero-ledger/sdk": "^2.90.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@x402/core": "^2.30.0",
+    "@x402/express": "^2.30.0",
+    "@x402/fetch": "^2.30.0",
+    "@x402/hedera": "^2.30.0",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.17.0",
+    "express": "^5.1.0",
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@foundry-rs/forge-win32-amd64": "^1.7.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.1",
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.19.3",
+    "typescript": "^5"
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "overrides": {
+    "ws": "^8.22.1"
+  }
+}

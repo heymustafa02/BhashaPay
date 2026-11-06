@@ -1,0 +1,17 @@
+{
+  "whitechainSepolia": {
+    "chainId": 1874,
+    "rpcUrl": "https://rpc.testnet.whitechain.io/",
+    "explorerUrl": "https://explorer.testnet.whitechain.io",
+    "usdtAddress": "0xcedfB56113143d55b2358b8CFbB0dEB5Ad2f55a7",
+    "tokenStandard": {
+      "eip3009TransferWithAuthorization": true,
+      "eip2612Permit": true,
+      "verifiedImplementation": "0x26425662d126412128967ecf0a02ec48573026f7"
+    },
+    "registryAddress": null,
+    "registryDeploymentTx": null,
+    "settlementAddress": null,
+    "settlementDeploymentTx": null
+  }
+}

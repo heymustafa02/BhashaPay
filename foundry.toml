@@ -1,0 +1,10 @@
+[profile.default]
+src = "contracts"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib", "node_modules"]
+solc_version = "0.8.30"
+evm_version = "prague"
+remappings = ["@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/"]
+
