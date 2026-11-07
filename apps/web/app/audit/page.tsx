@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib/api";
-import { DEMO_MODE, demoAuditEntries } from "../../lib/demoData";
 
 type AuditEntry = {
   sequence_number?: string;
@@ -14,26 +13,32 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
 }
 
+function auditEntriesFrom(value: unknown): AuditEntry[] {
+  const response = asRecord(value);
+  if (!Array.isArray(response.messages)) {
+    throw new Error("The audit log returned an invalid response.");
+  }
+  return response.messages.filter(
+    (entry): entry is AuditEntry => typeof entry === "object" && entry !== null,
+  );
+}
+
 export default function AuditPage() {
-  const [messages, setMessages] = useState<AuditEntry[]>(DEMO_MODE ? demoAuditEntries : []);
-  const [loading, setLoading] = useState(!DEMO_MODE);
-  const [showingDemo, setShowingDemo] = useState(DEMO_MODE);
+  const [messages, setMessages] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (DEMO_MODE) return;
     let active = true;
-    fetchJson<{ messages: AuditEntry[] }>("/audit?limit=100")
+    fetchJson<unknown>("/audit?limit=100")
       .then((result) => {
         if (active) {
-          setShowingDemo(result.messages.length === 0);
-          setMessages(result.messages.length > 0 ? result.messages : demoAuditEntries);
+          setMessages(auditEntriesFrom(result));
+          setError("");
         }
       })
-      .catch(() => {
-        if (active) {
-          setMessages(demoAuditEntries);
-          setShowingDemo(true);
-        }
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Could not load HCS messages.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -49,15 +54,19 @@ export default function AuditPage() {
           <h1>Audit log</h1>
           <p>Payment events read from the Hedera testnet mirror node.</p>
         </div>
-        <span className={showingDemo ? "pill pill-warning" : "pill"}>
-          {showingDemo ? "Sample data" : "Tamper-evident"}
-        </span>
+        <span className="pill">Tamper-evident</span>
       </header>
       {loading ? <div className="loading-state">Loading HCS topic messages…</div> : null}
-      {!loading && messages.length === 0 ? (
+      {!loading && error ? (
+        <div className="error-state">
+          <strong>HCS audit log unavailable</strong>
+          <p>{error}</p>
+        </div>
+      ) : null}
+      {!loading && !error && messages.length === 0 ? (
         <div className="empty-state"><strong>No audit messages found</strong><p>Payment attempts will be written to the configured HCS topic.</p></div>
       ) : null}
-      {!loading && messages.length > 0 ? (
+      {!loading && !error && messages.length > 0 ? (
         <section className="panel panel-pad">
           {messages.map((entry, index) => {
             const event = asRecord(entry.decoded);
@@ -80,7 +89,7 @@ export default function AuditPage() {
                 </div>
                 {typeof event.errorCode === "string" ? <div className="mono" style={{ color: "var(--danger)" }}>{event.errorCode}</div> : null}
                 <details>
-                  <summary className="text-link">View {showingDemo ? "sample" : "signed"} event content</summary>
+                  <summary className="text-link">View signed event content</summary>
                   <pre className="result-box mono">{JSON.stringify(entry.decoded, null, 2)}</pre>
                 </details>
               </article>
