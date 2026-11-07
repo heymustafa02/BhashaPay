@@ -19,23 +19,25 @@ type Service = {
 };
 
 export default function MarketplacePage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [services, setServices] = useState<Service[]>(DEMO_MODE ? demoServices : []);
+  const [loading, setLoading] = useState(!DEMO_MODE);
+  const [showingDemo, setShowingDemo] = useState(DEMO_MODE);
 
   useEffect(() => {
-    if (DEMO_MODE) {
-      setServices(demoServices);
-      setLoading(false);
-      return;
-    }
+    if (DEMO_MODE) return;
     let active = true;
     fetchJson<{ services: Service[] }>("/registry")
       .then((result) => {
-        if (active) setServices(result.services);
+        if (active) {
+          setShowingDemo(result.services.length === 0);
+          setServices(result.services.length > 0 ? result.services : demoServices);
+        }
       })
-      .catch((cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Could not load services.");
+      .catch(() => {
+        if (active) {
+          setServices(demoServices);
+          setShowingDemo(true);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -52,19 +54,18 @@ export default function MarketplacePage() {
           <p>Compare registered Indic-language services, prices, quality, and payment rails.</p>
         </div>
         <div className="rail-row">
-          {DEMO_MODE ? <span className="pill pill-warning">Sample data</span> : null}
+          {showingDemo ? <span className="pill pill-warning">Sample data</span> : null}
           <span className="pill">{services.filter((service) => service.active).length} active</span>
         </div>
       </header>
       {loading ? <div className="loading-state">Loading registered services…</div> : null}
-      {!loading && error ? <div className="error-state"><strong>Marketplace unavailable</strong><p>{error}</p></div> : null}
-      {!loading && !error && services.length === 0 ? (
+      {!loading && services.length === 0 ? (
         <div className="empty-state">
           <strong>No services registered yet</strong>
           <p>Start the API and seed services after configuring the Whitechain registry.</p>
         </div>
       ) : null}
-      {!loading && !error && services.length > 0 ? (
+      {!loading && services.length > 0 ? (
         <div className="service-grid">
           {services.map((service) => (
             <article className="service-card" key={service.serviceId}>
@@ -110,7 +111,7 @@ export default function MarketplacePage() {
                   <div className="mono muted">Merchant is not available</div>
                 ) : null}
               </div>
-              {service.registryUrl ? (
+              {service.registryUrl && !showingDemo ? (
                 <Link className="text-link" href={service.registryUrl} target="_blank" rel="noreferrer">
                   View on-chain registry entry <span aria-hidden="true">↗</span>
                 </Link>
