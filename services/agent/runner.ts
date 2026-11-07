@@ -13,6 +13,7 @@ import { decideSpend, dollarsToUnits } from "../../packages/shared/spend-policy"
 import { payForWhitechainTranslation } from "./whitechain";
 import { waitForApproval } from "./approvals";
 import { PaymentSettledActionError } from "../../packages/shared/payment-errors";
+import { generateGeminiContent, getGeminiModel } from "../api/gemini";
 
 type RunPolicy = {
   perMerchantLimit: string;
@@ -325,74 +326,32 @@ export async function runAgent(database: Database.Database, runId: string): Prom
 }
 
 async function identifyTask(task: string): Promise<z.infer<typeof taskChoiceSchema>> {
-  const apiKey = process.env.LLM_API_KEY;
-  if (!apiKey) throw new Error("LLM_API_KEY is required for agent tool calling.");
-  const baseUrl = (process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Classify the paid service needed for the task. Use stt for speech/audio transcription, ocr for document images, and translate for text translation. Always call the tool.",
-        },
-        { role: "user", content: task },
-      ],
-      tools: [{
-        type: "function",
-        function: {
-          name: "select_service_kind",
-          description: "Choose the required BhashaPay service and language pair.",
-          parameters: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              kind: { type: "string", enum: ["stt", "translate", "ocr"] },
-              sourceLanguage: { type: "string" },
-              targetLanguage: { type: "string" },
-            },
-            required: ["kind", "sourceLanguage", "targetLanguage"],
-          },
-        },
-      }],
-      tool_choice: { type: "function", function: { name: "select_service_kind" } },
-    }),
+  const result = await generateGeminiContent({
+    model: getGeminiModel(),
+    temperature: 0,
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: "OBJECT",
+      properties: {
+        kind: { type: "STRING", enum: ["stt", "translate", "ocr"] },
+        sourceLanguage: { type: "STRING" },
+        targetLanguage: { type: "STRING" },
+      },
+      required: ["kind", "sourceLanguage", "targetLanguage"],
+    },
+    parts: [{
+      text: `Classify the paid service needed for this task. Use "stt" for speech/audio transcription, "ocr" for document images, and "translate" for text translation. Choose the languages mentioned in the task, using Marathi as the default source language and English as the default target language when unspecified. Task:\n${task}`,
+    }],
   });
-  if (!response.ok) {
-    throw new Error(`LLM tool selection failed with HTTP ${response.status}.`);
-  }
-  const data: unknown = await response.json();
-  const choice = toolArguments(data);
-  const parsed = taskChoiceSchema.safeParse(choice);
-  if (!parsed.success) throw new Error("LLM returned an invalid service selection.");
-  return parsed.data;
-}
-
-function toolArguments(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || !("choices" in value) || !Array.isArray(value.choices)) {
-    throw new Error("LLM response did not contain tool calls.");
-  }
-  const first = value.choices[0];
-  if (typeof first !== "object" || first === null || !("message" in first) || typeof first.message !== "object" || first.message === null) {
-    throw new Error("LLM response did not contain a tool call message.");
-  }
-  const message = first.message;
-  if (!("tool_calls" in message) || !Array.isArray(message.tool_calls) || typeof message.tool_calls[0] !== "object" || message.tool_calls[0] === null) {
-    throw new Error("LLM did not call the required service-selection tool.");
-  }
-  const call = message.tool_calls[0];
-  if (!("function" in call) || typeof call.function !== "object" || call.function === null || !("arguments" in call.function) || typeof call.function.arguments !== "string") {
-    throw new Error("LLM returned a malformed service-selection call.");
-  }
+  let choice: unknown;
   try {
-    return JSON.parse(call.function.arguments) as unknown;
+    choice = JSON.parse(result) as unknown;
   } catch (error) {
-    throw new Error("LLM returned invalid JSON in the service-selection tool call.", { cause: error });
+    throw new Error("Gemini returned invalid JSON in the service selection.", { cause: error });
   }
+  const parsed = taskChoiceSchema.safeParse(choice);
+  if (!parsed.success) throw new Error("Gemini returned an invalid service selection.");
+  return parsed.data;
 }
 
 function buildCandidates(

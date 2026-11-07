@@ -6,7 +6,7 @@ This guide covers installing BhashaPay, running the dashboard and API, verifying
 
 - Node.js 20.9 or newer and npm.
 - PowerShell on Windows (commands below use PowerShell syntax).
-- A provider API key for the OpenAI-compatible API if you want to run the API. The API requires a non-empty `LLM_API_KEY` at startup.
+- A Google Gemini API key if you want to run the API. The API requires a non-empty `GEMINI_API_KEY` at startup.
 - Testnet accounts and contracts only if you intend to make real paid requests.
 
 The project uses SQLite and creates its local database automatically; a separate database server is not required. Foundry is included as a project dependency for contract tests and can be invoked with `npm exec -- forge`.
@@ -26,15 +26,17 @@ Edit `.env` and set at least:
 | --- | --- | --- |
 | `PORT` | API | Leave `4021` unless that port is in use. |
 | `HEDERA_PAY_TO_ACCOUNT_ID` | API startup | Your Hedera testnet merchant account ID in `0.0.x` format. |
-| `LLM_API_KEY` | API startup and model calls | Your provider key. |
-| `LLM_BASE_URL` | Non-default provider | OpenAI-compatible API base URL; defaults to `https://api.openai.com/v1`. |
-| `LLM_MODEL` | Translation and agent selection | Model name supported by your provider. |
+| `GEMINI_API_KEY` | API startup and model calls | Your Google AI Studio API key. |
+| `GEMINI_BASE_URL` | Gemini API requests | Defaults to `https://generativelanguage.googleapis.com/v1beta`. |
+| `GEMINI_MODEL` | Translation and agent selection | Defaults to `gemini-2.5-flash`. |
+| `GEMINI_STT_MODEL` | Speech-to-text | Optional model override; defaults to `GEMINI_MODEL`. |
+| `GEMINI_OCR_MODEL` | Document OCR | Optional model override; defaults to `GEMINI_MODEL`. |
 | `DATABASE_PATH` | API persistence | Defaults to `./data/bhashapay.sqlite`; parent folders are created automatically. |
 | `FRONTEND_ORIGIN` | Browser-to-API requests | Dashboard origin, defaults to `http://localhost:3000`. |
 
 `HEDERA_PAY_TO_ACCOUNT_ID` must have the right format for the API to start. For actual Hedera payments it must be a valid testnet merchant account associated with the testnet USDC token. Never use mainnet accounts or commit `.env`.
 
-The API always needs `LLM_API_KEY` to start, even if you only want to inspect the dashboard. For read-only local browsing, a non-empty placeholder key can start the API, but provider-backed actions will not work until it is replaced with a valid key.
+The API always needs `GEMINI_API_KEY` to start, even if you only want to inspect the dashboard. For read-only local browsing, a non-empty placeholder key can start the API, but provider-backed actions will not work until it is replaced with a valid key.
 
 ## 3. Start the API and dashboard
 
@@ -131,7 +133,7 @@ The server-side paid routes require testnet credentials and HCS audit configurat
 - `HEDERA_PAY_TO_ACCOUNT_ID`: merchant account, associated with testnet USDC (`0.0.429274`).
 - `HEDERA_CLIENT_ACCOUNT_ID` and `HEDERA_CLIENT_PRIVATE_KEY`: funded testnet payer, also associated with that token.
 - `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_PRIVATE_KEY`, and `HEDERA_AUDIT_TOPIC_ID`: testnet account and topic used for payment auditing.
-- `LLM_API_KEY` and, as needed, `LLM_BASE_URL`, `LLM_MODEL`, `STT_MODEL`, and `OCR_MODEL`.
+- `GEMINI_API_KEY` and, as needed, `GEMINI_BASE_URL`, `GEMINI_MODEL`, `GEMINI_STT_MODEL`, and `GEMINI_OCR_MODEL`.
 
 Restart `npm run api:dev` after changing environment variables. Once a service is seeded, the agent can run translation, transcription, or OCR from `/agent` with its corresponding text or uploaded media. The direct paid translation demo can be run in another terminal with:
 
@@ -181,7 +183,7 @@ Other scripts:
 
 ## Troubleshooting
 
-- **API exits with a configuration error:** check that `.env` is in the repository root and that `HEDERA_PAY_TO_ACCOUNT_ID` and `LLM_API_KEY` are set.
+- **API exits with a configuration error:** check that `.env` is in the repository root and that `HEDERA_PAY_TO_ACCOUNT_ID` and `GEMINI_API_KEY` are set.
 - **Dashboard reports an API error:** confirm the API health check responds and that `FRONTEND_ORIGIN` matches the dashboard origin exactly. If using a non-default API URL, set `NEXT_PUBLIC_API_URL` in `apps/web/.env.local`.
 - **No services appear:** the database starts empty. Deploy the registry, configure its address and the deployer key, and run `npm run services:seed`.
 - **Paid calls fail:** check testnet token association and balance, service allowlisting and budget limits, HCS operator/topic configuration, LLM model access, and the relevant rail's keys and contract addresses. API and facilitator logs contain request IDs and failure details.

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navigation = [
   { href: "/", label: "Overview", glyph: "◫" },
@@ -9,6 +12,8 @@ const navigation = [
 ];
 
 export function SiteShell({ children }: Readonly<{ children: React.ReactNode }>) {
+  const pathname = usePathname();
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -22,7 +27,12 @@ export function SiteShell({ children }: Readonly<{ children: React.ReactNode }>)
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
           {navigation.map((item) => (
-            <Link className="nav-link" href={item.href} key={item.href}>
+            <Link
+              className="nav-link"
+              href={item.href}
+              key={item.href}
+              aria-current={pathname === item.href ? "page" : undefined}
+            >
               <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
               {item.label}
             </Link>

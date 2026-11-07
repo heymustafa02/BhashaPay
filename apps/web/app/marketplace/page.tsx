@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchJson, formatUnits } from "../../lib/api";
+import { DEMO_MODE, demoServices } from "../../lib/demoData";
 
 type Service = {
   serviceId: string;
@@ -23,6 +24,11 @@ export default function MarketplacePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      setServices(demoServices);
+      setLoading(false);
+      return;
+    }
     let active = true;
     fetchJson<{ services: Service[] }>("/registry")
       .then((result) => {
@@ -45,7 +51,10 @@ export default function MarketplacePage() {
           <h1>Marketplace</h1>
           <p>Compare registered Indic-language services, prices, quality, and payment rails.</p>
         </div>
-        <span className="pill">{services.filter((service) => service.active).length} active</span>
+        <div className="rail-row">
+          {DEMO_MODE ? <span className="pill pill-warning">Sample data</span> : null}
+          <span className="pill">{services.filter((service) => service.active).length} active</span>
+        </div>
       </header>
       {loading ? <div className="loading-state">Loading registered services…</div> : null}
       {!loading && error ? <div className="error-state"><strong>Marketplace unavailable</strong><p>{error}</p></div> : null}

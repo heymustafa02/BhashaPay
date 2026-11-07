@@ -13,6 +13,7 @@ import { writeAuditEvent, readHcsMessages } from "./audit";
 import { openDatabase } from "./database";
 import { getRegistry } from "./registry";
 import { extractDocumentText, transcribeAudio } from "./providers";
+import { generateGeminiContent, getGeminiModel } from "./gemini";
 import { z } from "zod";
 
 type TranslateRequest = {
@@ -86,9 +87,7 @@ const ocrRequestSchema = z.object({
 const port = Number(process.env.PORT ?? "4021");
 const facilitatorUrl = process.env.FACILITATOR_URL ?? "https://x402.org/facilitator";
 const payToAccountId = process.env.HEDERA_PAY_TO_ACCOUNT_ID;
-const llmBaseUrl = (process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
-const llmApiKey = process.env.LLM_API_KEY;
-const llmModel = process.env.LLM_MODEL ?? "gpt-4o-mini";
+const geminiApiKey = process.env.GEMINI_API_KEY;
 const testnetUsdc = "0.0.429274";
 const database = openDatabase();
 const frontendOrigin = process.env.FRONTEND_ORIGIN ?? "http://localhost:3000";
@@ -121,8 +120,8 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 if (!payToAccountId || !/^0\.0\.\d+$/.test(payToAccountId)) {
   throw new Error("HEDERA_PAY_TO_ACCOUNT_ID must be a Hedera testnet account ID (0.0.x).");
 }
-if (!llmApiKey) {
-  throw new Error("LLM_API_KEY is required; translation must be available before payment is accepted.");
+if (!geminiApiKey) {
+  throw new Error("GEMINI_API_KEY is required; translation must be available before payment is accepted.");
 }
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
@@ -1351,49 +1350,17 @@ function isTranslateRequest(value: unknown): value is TranslateRequest {
 }
 
 async function translate(input: TranslateRequest): Promise<string> {
-  const response = await fetch(`${llmBaseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${llmApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: llmModel,
+  try {
+    return await generateGeminiContent({
+      model: getGeminiModel(),
       temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: "Translate the user's text faithfully. Return only the translation.",
-        },
-        {
-          role: "user",
-          content: `Translate from ${input.sourceLanguage} to ${input.targetLanguage}:\n\n${input.text}`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new TranslationProviderError(`Provider returned HTTP ${response.status}.`);
+      parts: [{
+        text: `Translate from ${input.sourceLanguage} to ${input.targetLanguage} faithfully. Return only the translation.\n\n${input.text}`,
+      }],
+    });
+  } catch (error) {
+    throw new TranslationProviderError(
+      error instanceof Error ? error.message : "Gemini translation request failed.",
+    );
   }
-
-  const result: unknown = await response.json();
-  if (
-    typeof result !== "object" ||
-    result === null ||
-    !("choices" in result) ||
-    !Array.isArray(result.choices) ||
-    typeof result.choices[0] !== "object" ||
-    result.choices[0] === null ||
-    !("message" in result.choices[0]) ||
-    typeof result.choices[0].message !== "object" ||
-    result.choices[0].message === null ||
-    !("content" in result.choices[0].message) ||
-    typeof result.choices[0].message.content !== "string" ||
-    result.choices[0].message.content.length === 0
-  ) {
-    throw new TranslationProviderError("Provider response did not contain translation text.");
-  }
-
-  return result.choices[0].message.content;
 }

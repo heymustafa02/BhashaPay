@@ -222,7 +222,10 @@ export default function AgentPage() {
           <h1>Agent run</h1>
           <p>Set a task and spend policy. The agent discovers services and streams each step.</p>
         </div>
-        {runStatus ? <span className={runStatus === "failed" ? "pill pill-danger" : "pill"}>{runStatus}</span> : null}
+        <div className="page-header-badges">
+          <span className="pill">Gemini AI</span>
+          {runStatus ? <span className={runStatus === "failed" ? "pill pill-danger" : "pill"}>{runStatus}</span> : null}
+        </div>
       </header>
 
       <div className="agent-layout">
@@ -231,7 +234,7 @@ export default function AgentPage() {
             <div className="field field-full">
               <label htmlFor="task">Task</label>
               <input id="task" className="input" value={task} onChange={(event) => setTask(event.target.value)} required maxLength={2000} />
-              <span className="field-hint">The model selects speech transcription, translation, or OCR from your request.</span>
+              <span className="field-hint">Gemini selects speech transcription, translation, or OCR from your request.</span>
             </div>
             <div className="field field-full">
               <label htmlFor="input-text">Text input</label>

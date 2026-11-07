@@ -24,6 +24,48 @@ test("OCR rejects malformed media before contacting a provider", async () => {
   );
 });
 
+test("speech transcription and OCR send inline media to Gemini", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GEMINI_API_KEY;
+  const requests: Array<{ url: string; apiKey: string | null; body: Record<string, unknown> }> = [];
+  process.env.GEMINI_API_KEY = "test-gemini-key";
+  globalThis.fetch = async (input, init) => {
+    requests.push({
+      url: String(input),
+      apiKey: new Headers(init?.headers).get("x-goog-api-key"),
+      body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+    });
+    return new Response(
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: "recognized text" }] } }] }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    const audioBase64 = Buffer.from("audio bytes").toString("base64");
+    const imageBase64 = Buffer.from("image bytes").toString("base64");
+    assert.equal(
+      await transcribeAudio({ audioBase64, fileName: "clip.webm", mimeType: "audio/webm" }),
+      "recognized text",
+    );
+    assert.equal(
+      await extractDocumentText({ imageBase64, mimeType: "image/png", sourceLanguage: "Hindi" }),
+      "recognized text",
+    );
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].apiKey, "test-gemini-key");
+    assert.equal(requests[0].url, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+    const audioContents = requests[0].body.contents as Array<{ parts: Array<Record<string, unknown>> }>;
+    assert.deepEqual(audioContents[0].parts[1].inlineData, { mimeType: "audio/webm", data: audioBase64 });
+    const imageContents = requests[1].body.contents as Array<{ parts: Array<Record<string, unknown>> }>;
+    assert.deepEqual(imageContents[0].parts[1].inlineData, { mimeType: "image/png", data: imageBase64 });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalApiKey;
+  }
+});
+
 test("settled-action failures remain distinguishable for safe rail handling", () => {
   const payment = {
     txHash: `0x${"11".repeat(32)}`,
